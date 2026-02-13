@@ -32,18 +32,48 @@
             accent-color: #4285F4;
         }
 
-        .stat-box {
-            display: inline-block;
-            margin: 10px;
-            padding: 10px 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            font-weight: bold;
-            color: #2c3e50;
+        .input-group {
+            margin: 15px 0;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
         }
 
-        .highlight { color: #d35400; font-size: 1.2em; }
+        .input-box {
+            text-align: center;
+        }
+
+        .input-box input {
+            padding: 8px;
+            width: 80px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        button.check-btn {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+
+        button.check-btn:hover {
+            background-color: #3367d6;
+        }
+
+        #tool-feedback {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-top: 15px;
+            height: 24px; /* Keeps layout stable */
+        }
     </style>
 </head>
 <body>
@@ -58,22 +88,32 @@
 
         <div class="tool-container">
             <h2>Polygon Explorer</h2>
-            <p>Drag the slider to slice the polygon into triangles from a single point.</p>
+            <p>1. Drag the slider to choose a shape.<br>2. Count the triangles created.<br>3. Calculate the total degrees.</p>
             
             <div class="controls">
-                <label for="sidesRange">Number of Sides (n): <span id="sidesVal" class="highlight">5</span></label><br>
+                <label for="sidesRange">Number of Sides (n): <span id="sidesVal" style="font-weight:bold; font-size:1.2em;">5</span></label><br>
                 <input type="range" id="sidesRange" min="3" max="12" value="5">
             </div>
 
             <canvas id="polyCanvas" width="300" height="300"></canvas>
 
-            <div id="math-explanation">
-                <div class="stat-box">Triangles Created: <span id="triCount" class="highlight">3</span></div>
-                <div class="stat-box">Total Degrees: <span id="degreeCount" class="highlight">540°</span></div>
-                <p style="margin-top: 15px; font-style: italic;">
-                    Formula: (n - 2) × 180°
-                </p>
+            <div class="input-group">
+                <div class="input-box">
+                    <label>How many triangles?</label><br>
+                    <input type="number" id="user-triangles" placeholder="?">
+                </div>
+                <div class="input-box">
+                    <label>Total Interior Sum?</label><br>
+                    <input type="number" id="user-degrees" placeholder="?">
+                </div>
             </div>
+
+            <button class="check-btn" onclick="checkToolAnswer()">Check My Work</button>
+            <p id="tool-feedback"></p>
+            
+            <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                <i>Hint: Each triangle adds 180°</i>
+            </p>
         </div>
         <hr>
 
@@ -84,7 +124,7 @@
     </div>
 
     <script type="module">
-        // 1. FIREBASE SETUP (Keep this to load questions later!)
+        // 1. FIREBASE (Standard Setup)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -101,7 +141,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Load questions for this chapter
+        // Load Questions Logic
         async function loadQuestions() {
             const container = document.getElementById('question-container');
             const q = query(collection(db, "questions"), where("chapter", "==", "Polygons"));
@@ -124,33 +164,39 @@
         }
         loadQuestions();
 
-
         // 2. INTERACTIVE DRAWING SCRIPT
         const canvas = document.getElementById('polyCanvas');
         const ctx = canvas.getContext('2d');
         const slider = document.getElementById('sidesRange');
         
-        // Colors for the triangles
+        // Variables to hold the CORRECT answers (hidden from student)
+        let correctTriangles = 0;
+        let correctDegrees = 0;
+
+        // Colors
         const colors = ['#FFD1DC', '#FFE5B4', '#D4F1F4', '#E6E6FA', '#D7F9E9', '#FADADD', '#FFF8DC', '#E0FFFF', '#FFDEAD', '#F0FFF0'];
 
         function drawPolygon() {
             const sides = parseInt(slider.value);
+            
+            // Calculate Correct Answers based on current slider
+            correctTriangles = sides - 2;
+            correctDegrees = correctTriangles * 180;
+
+            // Clear previous user inputs when they change the shape
+            document.getElementById('user-triangles').value = '';
+            document.getElementById('user-degrees').value = '';
+            document.getElementById('tool-feedback').innerText = '';
+
             const radius = 100;
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
             
-            // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Update Text
             document.getElementById('sidesVal').innerText = sides;
-            document.getElementById('triCount').innerText = sides - 2;
-            document.getElementById('degreeCount').innerText = (sides - 2) * 180 + "°";
 
-            // Calculate Vertices
             let vertices = [];
             for (let i = 0; i < sides; i++) {
-                // We shift angle by -Math.PI/2 to make the first vertex point straight up
                 const angle = (i * 2 * Math.PI / sides) - (Math.PI / 2);
                 vertices.push({
                     x: centerX + radius * Math.cos(angle),
@@ -158,26 +204,21 @@
                 });
             }
 
-            // Draw Triangles (The "Fan" Method from Vertex 0)
-            // We form triangles using Vertex 0, Vertex i, and Vertex i+1
+            // Draw Triangles
             for (let i = 1; i < sides - 1; i++) {
                 ctx.beginPath();
-                ctx.moveTo(vertices[0].x, vertices[0].y);       // The "Same Point" (Pivot)
-                ctx.lineTo(vertices[i].x, vertices[i].y);       // Second point
-                ctx.lineTo(vertices[i+1].x, vertices[i+1].y);   // Third point
+                ctx.moveTo(vertices[0].x, vertices[0].y);
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+                ctx.lineTo(vertices[i+1].x, vertices[i+1].y);
                 ctx.closePath();
-
-                // Fill with color
                 ctx.fillStyle = colors[(i-1) % colors.length];
                 ctx.fill();
-                
-                // Draw borders
                 ctx.strokeStyle = "#555";
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
 
-            // Draw the heavy outer outline of the polygon
+            // Draw Outline
             ctx.beginPath();
             ctx.moveTo(vertices[0].x, vertices[0].y);
             for (let i = 1; i < sides; i++) {
@@ -188,19 +229,39 @@
             ctx.lineWidth = 3;
             ctx.stroke();
 
-            // Highlight the "Pivot" point
+            // Pivot Point
             ctx.beginPath();
             ctx.arc(vertices[0].x, vertices[0].y, 5, 0, 2 * Math.PI);
             ctx.fillStyle = "red";
             ctx.fill();
         }
 
-        // Listen for slider changes
-        slider.addEventListener('input', drawPolygon);
-        
-        // Initial Draw
-        drawPolygon();
+        // 3. CHECK ANSWER FUNCTION
+        window.checkToolAnswer = () => {
+            const userTri = parseInt(document.getElementById('user-triangles').value);
+            const userDeg = parseInt(document.getElementById('user-degrees').value);
+            const feedback = document.getElementById('tool-feedback');
 
+            if (isNaN(userTri) || isNaN(userDeg)) {
+                feedback.innerText = "⚠️ Please fill in both boxes first.";
+                feedback.style.color = "orange";
+                return;
+            }
+
+            if (userTri === correctTriangles && userDeg === correctDegrees) {
+                feedback.innerText = "✅ Perfect! You found the sum.";
+                feedback.style.color = "green";
+            } else if (userTri === correctTriangles) {
+                feedback.innerText = "Your triangle count is right, but check your multiplication (x 180).";
+                feedback.style.color = "orange";
+            } else {
+                feedback.innerText = "❌ Not quite. Count the colored triangles carefully.";
+                feedback.style.color = "red";
+            }
+        };
+
+        slider.addEventListener('input', drawPolygon);
+        drawPolygon();
     </script>
 </body>
 </html>
