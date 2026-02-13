@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Teacher Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { background-color: #f0f2f5; padding: 20px; }
+        .admin-form {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Ensures padding doesn't break layout */
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+        }
+        button:hover { background: #34495e; }
+        .success-msg {
+            color: green;
+            text-align: center;
+            display: none;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-form">
+        <h2 style="text-align: center;">Add New Question</h2>
+        <div id="msg" class="success-msg">✅ Question Uploaded Successfully!</div>
+
+        <label>Chapter:</label>
+        <select id="q-chapter">
+            <option value="Basics">Chapter 1: Basics</option>
+            <option value="Triangles">Chapter 2: Triangles</option>
+            <option value="Circles">Chapter 3: Circles</option>
+        </select>
+
+        <label>Question Title:</label>
+        <input type="text" id="q-title" placeholder="e.g. Area of a Circle">
+
+        <label>Question Text:</label>
+        <textarea id="q-text" rows="4" placeholder="e.g. Find the area if radius is 5..."></textarea>
+
+        <label>Correct Answer (Number):</label>
+        <input type="number" id="q-answer" step="any" placeholder="e.g. 78.5">
+
+        <label>Image URL (Optional):</label>
+        <input type="text" id="q-image" placeholder="Paste image link here...">
+
+        <button id="upload-btn">Upload to Database</button>
+        <br><br>
+        <a href="index.html" style="display:block; text-align:center;">← Back to Home</a>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // USE YOUR CONFIG HERE (Same as index.html)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
+            authDomain: "dohl-s-geometry.firebaseapp.com",
+            projectId: "dohl-s-geometry",
+            storageBucket: "dohl-s-geometry.firebasestorage.app",
+            messagingSenderId: "92329448606",
+            appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
+            measurementId: "G-2FHN2VX726"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        document.getElementById('upload-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('upload-btn');
+            const msg = document.getElementById('msg');
+            
+            // 1. Get values from form
+            const chapter = document.getElementById('q-chapter').value;
+            const title = document.getElementById('q-title').value;
+            const text = document.getElementById('q-text').value;
+            const answer = parseFloat(document.getElementById('q-answer').value);
+            const image = document.getElementById('q-image').value;
+
+            if(!text || !answer) {
+                alert("Please fill in at least the Question Text and Correct Answer.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Uploading...";
+
+            try {
+                // 2. Add to Firestore "questions" collection
+                await addDoc(collection(db, "questions"), {
+                    chapter: chapter,
+                    title: title,
+                    text: text,
+                    correctAnswer: answer,
+                    imageUrl: image,
+                    createdAt: new Date()
+                });
+
+                // 3. Success! Reset form
+                msg.style.display = 'block';
+                document.getElementById('q-title').value = '';
+                document.getElementById('q-text').value = '';
+                document.getElementById('q-answer').value = '';
+                document.getElementById('q-image').value = '';
+                
+                setTimeout(() => { msg.style.display = 'none'; }, 3000);
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                alert("Error uploading. Check console for details.");
+            }
+            
+            btn.disabled = false;
+            btn.innerText = "Upload to Database";
+        });
+    </script>
+</body>
+</html>
