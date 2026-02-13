@@ -52,6 +52,7 @@
             font-size: 16px;
         }
 
+        /* Button Styles */
         button.check-btn {
             background-color: #4285F4;
             color: white;
@@ -63,10 +64,27 @@
             margin-top: 10px;
             transition: background 0.3s;
         }
+        button.check-btn:hover { background-color: #3367d6; }
 
-        button.check-btn:hover {
-            background-color: #3367d6;
+        /* Login Box Styles */
+        #login-section {
+            background: #e8f0fe;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid #d2e3fc;
         }
+        #login-btn {
+            background: white;
+            color: #444;
+            border: 1px solid #ccc;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #login-btn:hover { background: #f1f1f1; }
 
         #tool-feedback {
             font-weight: bold;
@@ -85,6 +103,12 @@
 
     <div class="container" style="max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
         <a href="../index.html" style="text-decoration: none; color: #4285F4; font-weight: bold;">← Back to Dashboard</a>
+        <br><br>
+
+        <div id="login-section">
+            <span id="user-display">Not signed in. Progress will not be saved.</span>
+            <button id="login-btn" style="margin-left:10px;">Sign in with Google</button>
+        </div>
 
         <div class="tool-container">
             <h2>Polygon Explorer</h2>
@@ -124,10 +148,10 @@
     </div>
 
     <script type="module">
-        // 1. FIREBASE IMPORTS
+        // 1. FIREBASE IMPORTS (Now includes Google Auth providers)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, query, where, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
@@ -142,161 +166,20 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
 
-        // Track Current User
+        // 2. LOGIN LOGIC
+        const loginBtn = document.getElementById('login-btn');
+        const userDisplay = document.getElementById('user-display');
         let currentUserId = null;
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUserId = user.uid;
-            } else {
-                console.log("No user signed in. Progress won't be saved.");
-            }
-        });
 
-        // 2. Load Questions Logic
-        async function loadQuestions() {
-            const container = document.getElementById('question-container');
-            const q = query(collection(db, "questions"), where("chapter", "==", "Polygons"));
-            const querySnapshot = await getDocs(q);
-
-            if (querySnapshot.empty) {
-                container.innerHTML = '<p>No questions yet. Use the Admin page to add some!</p>';
-                return;
-            }
-            container.innerHTML = '';
-            querySnapshot.forEach((docSnap) => {
-                const data = docSnap.data();
-                container.innerHTML += `
-                    <div style="border:1px solid #ddd; padding:15px; margin-bottom:15px; border-radius:8px;">
-                        <h3>${data.title}</h3>
-                        <p>${data.text}</p>
-                        ${data.imageUrl ? `<img src="${data.imageUrl}" style="max-width:200px;">` : ''}
-                        <br>
-                        <input type="number" id="ans-${docSnap.id}" placeholder="Your Answer">
-                        <button style="margin-top:10px; padding:5px 10px;" onclick="checkQuestion('${docSnap.id}', ${data.correctAnswer})">Check</button>
-                        <span id="feedback-${docSnap.id}" style="margin-left:10px; font-weight:bold;"></span>
-                    </div>`;
-            });
-        }
-        loadQuestions();
-
-        // 3. Simple Check for the Practice Questions
-        window.checkQuestion = (id, correct) => {
-             const val = parseFloat(document.getElementById('ans-'+id).value);
-             const feedback = document.getElementById('feedback-'+id);
-             if(val === correct) {
-                 feedback.innerText = "✅ Correct!";
-                 feedback.style.color = "green";
-             } else {
-                 feedback.innerText = "❌ Try again.";
-                 feedback.style.color = "red";
-             }
-        }
-
-        // 4. INTERACTIVE DRAWING SCRIPT
-        const canvas = document.getElementById('polyCanvas');
-        const ctx = canvas.getContext('2d');
-        const slider = document.getElementById('sidesRange');
-        
-        let correctTriangles = 0;
-        let correctDegrees = 0;
-        const colors = ['#FFD1DC', '#FFE5B4', '#D4F1F4', '#E6E6FA', '#D7F9E9', '#FADADD', '#FFF8DC', '#E0FFFF', '#FFDEAD', '#F0FFF0'];
-
-        function drawPolygon() {
-            const sides = parseInt(slider.value);
-            correctTriangles = sides - 2;
-            correctDegrees = correctTriangles * 180;
-
-            // Reset inputs
-            document.getElementById('user-triangles').value = '';
-            document.getElementById('user-degrees').value = '';
-            document.getElementById('tool-feedback').innerText = '';
-
-            const radius = 100;
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('sidesVal').innerText = sides;
-
-            let vertices = [];
-            for (let i = 0; i < sides; i++) {
-                const angle = (i * 2 * Math.PI / sides) - (Math.PI / 2);
-                vertices.push({
-                    x: centerX + radius * Math.cos(angle),
-                    y: centerY + radius * Math.sin(angle)
-                });
-            }
-
-            for (let i = 1; i < sides - 1; i++) {
-                ctx.beginPath();
-                ctx.moveTo(vertices[0].x, vertices[0].y);
-                ctx.lineTo(vertices[i].x, vertices[i].y);
-                ctx.lineTo(vertices[i+1].x, vertices[i+1].y);
-                ctx.closePath();
-                ctx.fillStyle = colors[(i-1) % colors.length];
-                ctx.fill();
-                ctx.strokeStyle = "#555";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-
-            ctx.beginPath();
-            ctx.moveTo(vertices[0].x, vertices[0].y);
-            for (let i = 1; i < sides; i++) {
-                ctx.lineTo(vertices[i].x, vertices[i].y);
-            }
-            ctx.closePath();
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 3;
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.arc(vertices[0].x, vertices[0].y, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = "red";
-            ctx.fill();
-        }
-
-        // 5. CHECK TOOL ANSWER & SAVE TO DATABASE
-        window.checkToolAnswer = async () => {
-            const userTri = parseInt(document.getElementById('user-triangles').value);
-            const userDeg = parseInt(document.getElementById('user-degrees').value);
-            const feedback = document.getElementById('tool-feedback');
-
-            if (isNaN(userTri) || isNaN(userDeg)) {
-                feedback.innerText = "⚠️ Please fill in both boxes first.";
-                feedback.style.color = "orange";
-                return;
-            }
-
-            if (userTri === correctTriangles && userDeg === correctDegrees) {
-                feedback.innerText = "✅ Perfect! Progress Saved.";
-                feedback.style.color = "green";
-
-                // --- SAVE PROGRESS TO FIREBASE ---
-                if (currentUserId) {
-                    const studentRef = doc(db, "students", currentUserId);
-                    // We use setDoc with merge: true to avoid overwriting other data
-                    await setDoc(studentRef, {
-                        finished_polygons: true
-                    }, { merge: true });
-                    console.log("Chapter completion saved to DB!");
-                } else {
-                    console.log("User not logged in, progress not saved.");
-                }
-                // ---------------------------------
-
-            } else if (userTri === correctTriangles) {
-                feedback.innerText = "Your triangle count is right, but check your multiplication (x 180).";
-                feedback.style.color = "orange";
-            } else {
-                feedback.innerText = "❌ Not quite. Count the colored triangles carefully.";
-                feedback.style.color = "red";
-            }
-        };
-
-        slider.addEventListener('input', drawPolygon);
-        drawPolygon();
-    </script>
-</body>
-</html>
+        // Login Button Click Listener
+        loginBtn.addEventListener('click', () => {
+            if (!currentUserId) {
+                // Log In
+                signInWithPopup(auth, provider)
+                    .then((result) => {
+                        console.log("Signed in as:", result.user.displayName);
+                    }).catch((error) => {
+                        console.error("Login failed:", error);
+                    });
