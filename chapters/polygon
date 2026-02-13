@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 5: Polygons</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .tool-container {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        canvas {
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 20px auto;
+            display: block;
+        }
+
+        .controls {
+            margin: 20px 0;
+        }
+
+        input[type=range] {
+            width: 200px;
+            accent-color: #4285F4;
+        }
+
+        .stat-box {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .highlight { color: #d35400; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Chapter 5: Polygons</h1>
+        <p>Interior Angle Sum Theorem</p>
+    </header>
+
+    <div class="container" style="max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <a href="../index.html" style="text-decoration: none; color: #4285F4; font-weight: bold;">← Back to Dashboard</a>
+
+        <div class="tool-container">
+            <h2>Polygon Explorer</h2>
+            <p>Drag the slider to slice the polygon into triangles from a single point.</p>
+            
+            <div class="controls">
+                <label for="sidesRange">Number of Sides (n): <span id="sidesVal" class="highlight">5</span></label><br>
+                <input type="range" id="sidesRange" min="3" max="12" value="5">
+            </div>
+
+            <canvas id="polyCanvas" width="300" height="300"></canvas>
+
+            <div id="math-explanation">
+                <div class="stat-box">Triangles Created: <span id="triCount" class="highlight">3</span></div>
+                <div class="stat-box">Total Degrees: <span id="degreeCount" class="highlight">540°</span></div>
+                <p style="margin-top: 15px; font-style: italic;">
+                    Formula: (n - 2) × 180°
+                </p>
+            </div>
+        </div>
+        <hr>
+
+        <h2>Practice Questions</h2>
+        <div id="question-container">
+            <p>Loading questions from Firebase...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        // 1. FIREBASE SETUP (Keep this to load questions later!)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
+            authDomain: "dohl-s-geometry.firebaseapp.com",
+            projectId: "dohl-s-geometry",
+            storageBucket: "dohl-s-geometry.firebasestorage.app",
+            messagingSenderId: "92329448606",
+            appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
+            measurementId: "G-2FHN2VX726"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Load questions for this chapter
+        async function loadQuestions() {
+            const container = document.getElementById('question-container');
+            const q = query(collection(db, "questions"), where("chapter", "==", "Polygons"));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                container.innerHTML = '<p>No questions yet. Use the Admin page to add some!</p>';
+                return;
+            }
+            container.innerHTML = '';
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                container.innerHTML += `
+                    <div style="border:1px solid #ddd; padding:15px; margin-bottom:15px; border-radius:8px;">
+                        <h3>${data.title}</h3>
+                        <p>${data.text}</p>
+                        ${data.imageUrl ? `<img src="${data.imageUrl}" style="max-width:200px;">` : ''}
+                    </div>`;
+            });
+        }
+        loadQuestions();
+
+
+        // 2. INTERACTIVE DRAWING SCRIPT
+        const canvas = document.getElementById('polyCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('sidesRange');
+        
+        // Colors for the triangles
+        const colors = ['#FFD1DC', '#FFE5B4', '#D4F1F4', '#E6E6FA', '#D7F9E9', '#FADADD', '#FFF8DC', '#E0FFFF', '#FFDEAD', '#F0FFF0'];
+
+        function drawPolygon() {
+            const sides = parseInt(slider.value);
+            const radius = 100;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Update Text
+            document.getElementById('sidesVal').innerText = sides;
+            document.getElementById('triCount').innerText = sides - 2;
+            document.getElementById('degreeCount').innerText = (sides - 2) * 180 + "°";
+
+            // Calculate Vertices
+            let vertices = [];
+            for (let i = 0; i < sides; i++) {
+                // We shift angle by -Math.PI/2 to make the first vertex point straight up
+                const angle = (i * 2 * Math.PI / sides) - (Math.PI / 2);
+                vertices.push({
+                    x: centerX + radius * Math.cos(angle),
+                    y: centerY + radius * Math.sin(angle)
+                });
+            }
+
+            // Draw Triangles (The "Fan" Method from Vertex 0)
+            // We form triangles using Vertex 0, Vertex i, and Vertex i+1
+            for (let i = 1; i < sides - 1; i++) {
+                ctx.beginPath();
+                ctx.moveTo(vertices[0].x, vertices[0].y);       // The "Same Point" (Pivot)
+                ctx.lineTo(vertices[i].x, vertices[i].y);       // Second point
+                ctx.lineTo(vertices[i+1].x, vertices[i+1].y);   // Third point
+                ctx.closePath();
+
+                // Fill with color
+                ctx.fillStyle = colors[(i-1) % colors.length];
+                ctx.fill();
+                
+                // Draw borders
+                ctx.strokeStyle = "#555";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Draw the heavy outer outline of the polygon
+            ctx.beginPath();
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            for (let i = 1; i < sides; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Highlight the "Pivot" point
+            ctx.beginPath();
+            ctx.arc(vertices[0].x, vertices[0].y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = "red";
+            ctx.fill();
+        }
+
+        // Listen for slider changes
+        slider.addEventListener('input', drawPolygon);
+        
+        // Initial Draw
+        drawPolygon();
+
+    </script>
+</body>
+</html>
