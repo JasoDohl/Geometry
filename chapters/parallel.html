@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 4: Parallel Lines</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Chapter 4: Parallel Lines</h1>
+        <p>Transversals and Angle Relationships</p>
+    </header>
+
+    <div class="container" style="max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; text-align: left; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <a href="../index.html" style="color: #4285F4; text-decoration: none; font-weight: bold;">← Back to Dashboard</a>
+
+        <div style="text-align: center; margin: 20px 0;">
+             <h3>Key Concept: Transversal Angles</h3>
+             <p>When parallel lines are cut by a transversal, corresponding angles are equal!</p>
+        </div>
+
+        <hr>
+        <h2>Practice Questions</h2>
+        <div id="question-container">
+            <p>Loading questions...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
+            authDomain: "dohl-s-geometry.firebaseapp.com",
+            projectId: "dohl-s-geometry",
+            storageBucket: "dohl-s-geometry.firebasestorage.app",
+            messagingSenderId: "92329448606",
+            appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
+            measurementId: "G-2FHN2VX726"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function loadQuestions() {
+            const container = document.getElementById('question-container');
+            container.innerHTML = ''; 
+
+            // Looking for "Parallel" chapter questions
+            const q = query(collection(db, "questions"), where("chapter", "==", "Parallel"));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                container.innerHTML = '<p>No questions yet. Add them via the Admin page!</p>';
+                return;
+            }
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const qDiv = document.createElement('div');
+                qDiv.style.border = "1px solid #ddd";
+                qDiv.style.padding = "20px";
+                qDiv.style.marginBottom = "20px";
+                
+                qDiv.innerHTML = `
+                    <h3>${data.title}</h3>
+                    <p>${data.text}</p>
+                    ${data.imageUrl ? `<img src="${data.imageUrl}" style="max-width:300px; display:block; margin:10px 0;">` : ''}
+                    <input type="number" id="ans-${doc.id}" style="padding:8px;">
+                    <button onclick="checkAnswer('${doc.id}', ${data.correctAnswer})" style="padding:8px; background:#28a745; color:white; border:none; cursor:pointer;">Check</button>
+                    <p id="feedback-${doc.id}"></p>
+                `;
+                container.appendChild(qDiv);
+            });
+        }
+
+        window.checkAnswer = (docId, correctVal) => {
+            const userVal = parseFloat(document.getElementById(`ans-${docId}`).value);
+            const feedback = document.getElementById(`feedback-${docId}`);
+            feedback.innerHTML = (userVal === correctVal) ? "✅ Correct!" : "❌ Try again.";
+            feedback.style.color = (userVal === correctVal) ? "green" : "red";
+        };
+
+        loadQuestions();
+    </script>
+</body>
+</html>
