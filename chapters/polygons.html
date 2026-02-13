@@ -72,7 +72,7 @@
             font-weight: bold;
             font-size: 1.1em;
             margin-top: 15px;
-            height: 24px; /* Keeps layout stable */
+            height: 24px;
         }
     </style>
 </head>
@@ -124,9 +124,10 @@
     </div>
 
     <script type="module">
-        // 1. FIREBASE (Standard Setup)
+        // 1. FIREBASE IMPORTS
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, query, where, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
@@ -140,8 +141,19 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
-        // Load Questions Logic
+        // Track Current User
+        let currentUserId = null;
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUserId = user.uid;
+            } else {
+                console.log("No user signed in. Progress won't be saved.");
+            }
+        });
+
+        // 2. Load Questions Logic
         async function loadQuestions() {
             const container = document.getElementById('question-container');
             const q = query(collection(db, "questions"), where("chapter", "==", "Polygons"));
@@ -152,38 +164,50 @@
                 return;
             }
             container.innerHTML = '';
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
+            querySnapshot.forEach((docSnap) => {
+                const data = docSnap.data();
                 container.innerHTML += `
                     <div style="border:1px solid #ddd; padding:15px; margin-bottom:15px; border-radius:8px;">
                         <h3>${data.title}</h3>
                         <p>${data.text}</p>
                         ${data.imageUrl ? `<img src="${data.imageUrl}" style="max-width:200px;">` : ''}
+                        <br>
+                        <input type="number" id="ans-${docSnap.id}" placeholder="Your Answer">
+                        <button style="margin-top:10px; padding:5px 10px;" onclick="checkQuestion('${docSnap.id}', ${data.correctAnswer})">Check</button>
+                        <span id="feedback-${docSnap.id}" style="margin-left:10px; font-weight:bold;"></span>
                     </div>`;
             });
         }
         loadQuestions();
 
-        // 2. INTERACTIVE DRAWING SCRIPT
+        // 3. Simple Check for the Practice Questions
+        window.checkQuestion = (id, correct) => {
+             const val = parseFloat(document.getElementById('ans-'+id).value);
+             const feedback = document.getElementById('feedback-'+id);
+             if(val === correct) {
+                 feedback.innerText = "✅ Correct!";
+                 feedback.style.color = "green";
+             } else {
+                 feedback.innerText = "❌ Try again.";
+                 feedback.style.color = "red";
+             }
+        }
+
+        // 4. INTERACTIVE DRAWING SCRIPT
         const canvas = document.getElementById('polyCanvas');
         const ctx = canvas.getContext('2d');
         const slider = document.getElementById('sidesRange');
         
-        // Variables to hold the CORRECT answers (hidden from student)
         let correctTriangles = 0;
         let correctDegrees = 0;
-
-        // Colors
         const colors = ['#FFD1DC', '#FFE5B4', '#D4F1F4', '#E6E6FA', '#D7F9E9', '#FADADD', '#FFF8DC', '#E0FFFF', '#FFDEAD', '#F0FFF0'];
 
         function drawPolygon() {
             const sides = parseInt(slider.value);
-            
-            // Calculate Correct Answers based on current slider
             correctTriangles = sides - 2;
             correctDegrees = correctTriangles * 180;
 
-            // Clear previous user inputs when they change the shape
+            // Reset inputs
             document.getElementById('user-triangles').value = '';
             document.getElementById('user-degrees').value = '';
             document.getElementById('tool-feedback').innerText = '';
@@ -204,7 +228,6 @@
                 });
             }
 
-            // Draw Triangles
             for (let i = 1; i < sides - 1; i++) {
                 ctx.beginPath();
                 ctx.moveTo(vertices[0].x, vertices[0].y);
@@ -218,7 +241,6 @@
                 ctx.stroke();
             }
 
-            // Draw Outline
             ctx.beginPath();
             ctx.moveTo(vertices[0].x, vertices[0].y);
             for (let i = 1; i < sides; i++) {
@@ -229,15 +251,14 @@
             ctx.lineWidth = 3;
             ctx.stroke();
 
-            // Pivot Point
             ctx.beginPath();
             ctx.arc(vertices[0].x, vertices[0].y, 5, 0, 2 * Math.PI);
             ctx.fillStyle = "red";
             ctx.fill();
         }
 
-        // 3. CHECK ANSWER FUNCTION
-        window.checkToolAnswer = () => {
+        // 5. CHECK TOOL ANSWER & SAVE TO DATABASE
+        window.checkToolAnswer = async () => {
             const userTri = parseInt(document.getElementById('user-triangles').value);
             const userDeg = parseInt(document.getElementById('user-degrees').value);
             const feedback = document.getElementById('tool-feedback');
@@ -249,8 +270,22 @@
             }
 
             if (userTri === correctTriangles && userDeg === correctDegrees) {
-                feedback.innerText = "✅ Perfect! You found the sum.";
+                feedback.innerText = "✅ Perfect! Progress Saved.";
                 feedback.style.color = "green";
+
+                // --- SAVE PROGRESS TO FIREBASE ---
+                if (currentUserId) {
+                    const studentRef = doc(db, "students", currentUserId);
+                    // We use setDoc with merge: true to avoid overwriting other data
+                    await setDoc(studentRef, {
+                        finished_polygons: true
+                    }, { merge: true });
+                    console.log("Chapter completion saved to DB!");
+                } else {
+                    console.log("User not logged in, progress not saved.");
+                }
+                // ---------------------------------
+
             } else if (userTri === correctTriangles) {
                 feedback.innerText = "Your triangle count is right, but check your multiplication (x 180).";
                 feedback.style.color = "orange";
