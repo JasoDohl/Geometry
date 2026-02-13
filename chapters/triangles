@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 2: Triangles</title>
+    <link rel="stylesheet" href="../style.css">
+    
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: left;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #4285F4;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .question-card {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background: #fafafa;
+        }
+
+        input[type="number"] {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 150px;
+        }
+
+        button.submit-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #feedback-msg {
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .correct { color: green; }
+        .incorrect { color: red; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Chapter 2: Triangles</h1>
+        <p>Mastering Congruence and Pythagoras</p>
+    </header>
+
+    <div class="container">
+        <a href="../index.html" class="back-link">← Back to Dashboard</a>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+             <h3>Quick Reference: Triangle Types</h3>
+             <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Triangle.Isosceles.svg/1200px-Triangle.Isosceles.svg.png" alt="Isosceles Triangle" style="max-width: 150px;">
+        </div>
+
+        <hr>
+
+        <h2>Practice Questions</h2>
+        <div id="question-container">
+            <p>Loading question from Firebase...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Your Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
+            authDomain: "dohl-s-geometry.firebaseapp.com",
+            projectId: "dohl-s-geometry",
+            storageBucket: "dohl-s-geometry.firebasestorage.app",
+            messagingSenderId: "92329448606",
+            appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
+            measurementId: "G-2FHN2VX726"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 1. Function to Load Questions
+        async function loadQuestions() {
+            const container = document.getElementById('question-container');
+            container.innerHTML = ''; // Clear "Loading..." text
+
+            // We look for documents in the 'questions' collection where chapter is 'Triangles'
+            const q = query(collection(db, "questions"), where("chapter", "==", "Triangles"));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                container.innerHTML = '<p>No questions found in database. (Check the console to add one!)</p>';
+                console.log("No questions? Run the 'addSampleQuestion()' function in your browser console.");
+                // Expose function to global scope so you can run it manually
+                window.addSampleQuestion = addSampleQuestion; 
+                return;
+            }
+
+            // Loop through each question found
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const qDiv = document.createElement('div');
+                qDiv.className = 'question-card';
+                
+                // HTML for the question card
+                qDiv.innerHTML = `
+                    <h3>${data.title || "Question"}</h3>
+                    <p>${data.text}</p>
+                    ${data.imageUrl ? `<img src="${data.imageUrl}" style="max-width:200px; margin-bottom:10px;">` : ''}
+                    <br>
+                    <input type="number" id="ans-${doc.id}" placeholder="Your Answer">
+                    <button class="submit-btn" onclick="checkAnswer('${doc.id}', ${data.correctAnswer})">Check</button>
+                    <p id="feedback-${doc.id}"></p>
+                `;
+                container.appendChild(qDiv);
+            });
+        }
+
+        // 2. Make checkAnswer available to the HTML buttons
+        window.checkAnswer = (docId, correctVal) => {
+            const userVal = parseFloat(document.getElementById(`ans-${docId}`).value);
+            const feedbackEl = document.getElementById(`feedback-${docId}`);
+            
+            if (userVal === correctVal) {
+                feedbackEl.textContent = "✅ Correct! Great job.";
+                feedbackEl.className = "correct";
+            } else {
+                feedbackEl.textContent = "❌ Try again.";
+                feedbackEl.className = "incorrect";
+            }
+        };
+
+        // 3. (Admin Helper) Run this ONCE in your browser Console to add a test question
+        import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        async function addSampleQuestion() {
+            await setDoc(doc(db, "questions", "sample_triangle_1"), {
+                chapter: "Triangles",
+                title: "Pythagorean Theorem",
+                text: "A right triangle has legs of length 3 and 4. What is the length of the hypotenuse?",
+                correctAnswer: 5,
+                difficulty: "easy"
+            });
+            alert("Sample question added! Refresh the page.");
+        }
+
+        // Start the process
+        loadQuestions();
+    </script>
+</body>
+</html>
