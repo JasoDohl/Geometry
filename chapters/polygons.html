@@ -145,7 +145,8 @@
             let pts = [];
             for(let i=0; i<n; i++) {
                 let a = (i*2*Math.PI/n) - Math.PI/2;
-                pts.push({x: 150+100*Math.cos(a), y: 150+100*Math.sin(a)});
+                // NEW LINE (Shifts the center down to 160 and shrinks radius to 90)
+                pts.push({x: 150 + 90 * Math.cos(a), y: 160 + 90 * Math.sin(a)});
             }
             for(let i=1; i<n-1; i++) {
                 ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
