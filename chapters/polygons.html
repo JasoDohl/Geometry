@@ -1,360 +1,163 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chapter 5: Polygons</title>
-    <link rel="stylesheet" href="../style.css">
-    <style>
-        .tool-container {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            margin: 20px 0;
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
+        authDomain: "dohl-s-geometry.firebaseapp.com",
+        projectId: "dohl-s-geometry",
+        storageBucket: "dohl-s-geometry.firebasestorage.app",
+        messagingSenderId: "92329448606",
+        appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
+        measurementId: "G-2FHN2VX726"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    let currentUserId = null;
+
+    // --- 1. LOGIN & AUTH LOGIC ---
+    const loginBtn = document.getElementById('login-btn');
+    const userDisplay = document.getElementById('user-display');
+
+    loginBtn.addEventListener('click', () => {
+        if (!currentUserId) {
+            signInWithPopup(auth, provider).catch(err => console.error(err));
+        } else {
+            signOut(auth);
+        }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUserId = user.uid;
+            userDisplay.innerHTML = `Welcome, <b>${user.displayName}</b>!`;
+            loginBtn.innerText = "Sign Out";
+            await setDoc(doc(db, "students", user.uid), {
+                name: user.displayName,
+                email: user.email,
+                lastLogin: new Date()
+            }, { merge: true });
+        } else {
+            currentUserId = null;
+            userDisplay.innerHTML = "Not signed in. Progress will NOT be saved.";
+            loginBtn.innerText = "Sign in with Google";
+        }
+    });
+
+    // --- 2. LOAD QUESTIONS (The "Clean Text" version) ---
+    async function fetchQuestions() {
+        const container = document.getElementById('question-container');
+        const q = query(collection(db, "questions"), where("chapter", "==", "Polygons"));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            container.innerHTML = '<p>No questions yet.</p>';
+            return;
         }
 
-        canvas {
-            background: white;
-            border-radius: 50%;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin: 20px auto;
-            display: block;
-        }
+        container.innerHTML = '';
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
 
-        .controls {
-            margin: 20px 0;
-        }
+            // CLEANING THE TEXT: This removes $ and ^\circ automatically
+            let displayWeightText = data.text
+                .replace(/\$|\^\\circ\$/g, '') // Removes $ and code like ^\circ$
+                .replace(/\\circ/g, '°');     // Replaces \circ with a real ° symbol
 
-        input[type=range] {
-            width: 200px;
-            accent-color: #4285F4;
-        }
+            // SMART IMAGE: Only shows if the URL is valid
+            const imageTag = (data.imageUrl && data.imageUrl.length > 5) 
+                ? `<img src="${data.imageUrl}" style="max-width:100%; border-radius:8px; margin: 15px 0; display:block;">` 
+                : "";
 
-        .input-group {
-            margin: 15px 0;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .input-box {
-            text-align: center;
-        }
-
-        .input-box input {
-            padding: 8px;
-            width: 80px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-
-        /* Button Styles */
-        button.check-btn {
-            background-color: #4285F4;
-            color: white;
-            border: none;
-            padding: 10px 25px;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: background 0.3s;
-        }
-        button.check-btn:hover { background-color: #3367d6; }
-
-        /* Login Box Styles */
-        #login-section {
-            background: #e8f0fe;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 20px;
-            border: 1px solid #d2e3fc;
-        }
-        #login-btn {
-            background: white;
-            color: #444;
-            border: 1px solid #ccc;
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        #login-btn:hover { background: #f1f1f1; }
-
-        #tool-feedback {
-            font-weight: bold;
-            font-size: 1.1em;
-            margin-top: 15px;
-            height: 24px;
-        }
-    </style>
-</head>
-<body>
-
-    <header>
-        <h1>Chapter 5: Polygons</h1>
-        <p>Interior Angle Sum Theorem</p>
-    </header>
-
-    <div class="container" style="max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-        <a href="../index.html" style="text-decoration: none; color: #4285F4; font-weight: bold;">← Back to Dashboard</a>
-        <br><br>
-
-        <div id="login-section">
-            <span id="user-display">Not signed in. Progress will not be saved.</span>
-            <button id="login-btn" style="margin-left:10px;">Sign in with Google</button>
-        </div>
-
-        <div class="tool-container">
-            <h2>Polygon Explorer</h2>
-            <p>1. Drag the slider to choose a shape.<br>2. Count the triangles created.<br>3. Calculate the total degrees.</p>
-            
-            <div class="controls">
-                <label for="sidesRange">Number of Sides (n): <span id="sidesVal" style="font-weight:bold; font-size:1.2em;">5</span></label><br>
-                <input type="range" id="sidesRange" min="3" max="12" value="5">
-            </div>
-
-            <canvas id="polyCanvas" width="300" height="300"></canvas>
-
-            <div class="input-group">
-                <div class="input-box">
-                    <label>How many triangles?</label><br>
-                    <input type="number" id="user-triangles" placeholder="?">
-                </div>
-                <div class="input-box">
-                    <label>Total Interior Sum?</label><br>
-                    <input type="number" id="user-degrees" placeholder="?">
-                </div>
-            </div>
-
-            <button class="check-btn" onclick="checkToolAnswer()">Check My Work</button>
-            <p id="tool-feedback"></p>
-            
-            <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
-                <i>Hint: Each triangle adds 180°</i>
-            </p>
-        </div>
-        <hr>
-
-        <h2>Practice Questions</h2>
-        <div id="question-container">
-            <p>Loading questions from Firebase...</p>
-        </div>
-    </div>
-
-    <script type="module">
-        // 1. FIREBASE IMPORTS (Now includes Google Auth providers)
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
-            authDomain: "dohl-s-geometry.firebaseapp.com",
-            projectId: "dohl-s-geometry",
-            storageBucket: "dohl-s-geometry.firebasestorage.app",
-            messagingSenderId: "92329448606",
-            appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
-            measurementId: "G-2FHN2VX726"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-
-        // 2. LOGIN LOGIC
-        const loginBtn = document.getElementById('login-btn');
-        const userDisplay = document.getElementById('user-display');
-        let currentUserId = null;
-
-        // Login Button Click Listener
-        loginBtn.addEventListener('click', () => {
-            if (!currentUserId) {
-                // Log In
-                signInWithPopup(auth, provider)
-                    .then((result) => {
-                        console.log("Signed in as:", result.user.displayName);
-                    }).catch((error) => {
-                        console.error("Login failed:", error);
-                    });
-            } else {
-                // Log Out (Optional, but good to have)
-                signOut(auth).then(() => {
-                    console.log("Signed out");
-                });
-            }
-        });
-
-        // Watch for Login State Changes
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                userDisplay.innerHTML = `Welcome, <b>${user.displayName}</b>! Progress is being saved.`;
-                userDisplay.style.color = "green";
-                loginBtn.innerText = "Sign Out";
-                
-                // Ensure they exist in the 'students' database immediately
-                await setDoc(doc(db, "students", user.uid), {
-                    name: user.displayName,
-                    email: user.email,
-                    lastLogin: new Date()
-                }, { merge: true });
-
-            } else {
-                currentUserId = null;
-                userDisplay.innerHTML = "Not signed in. Progress will NOT be saved.";
-                userDisplay.style.color = "red";
-                loginBtn.innerText = "Sign in with Google";
-            }
-        });
-
-        // 3. LOAD PRACTICE QUESTIONS
-        async function loadQuestions() {
-            const container = document.getElementById('question-container');
-            const q = query(collection(db, "questions"), where("chapter", "==", "Polygons"));
-            const querySnapshot = await getDocs(q);
-
-            if (querySnapshot.empty) {
-                container.innerHTML = '<p>No questions yet. Use the Admin page to add some!</p>';
-                return;
-            }
-            container.innerHTML = '';
-            querySnapshot.forEach((docSnap) => {
-                const data = docSnap.data();
-                container.innerHTML += `
-                    <div style="border:1px solid #ddd; padding:15px; margin-bottom:15px; border-radius:8px;">
-                        <h3>${data.title}</h3>
-                        <p>${data.text}</p>
-                        ${data.imageUrl ? `<img src="${data.imageUrl}" style="max-width:200px;">` : ''}
-                        <br>
-                        <input type="number" id="ans-${docSnap.id}" placeholder="Your Answer">
-                        <button style="margin-top:10px; padding:5px 10px;" onclick="checkQuestion('${docSnap.id}', ${data.correctAnswer})">Check</button>
+            container.innerHTML += `
+                <div style="border:1px solid #ddd; padding:20px; margin-bottom:20px; border-radius:10px; background:#fff;">
+                    <h3>${data.title}</h3>
+                    <p style="font-size:1.1em;">${displayWeightText}</p>
+                    ${imageTag}
+                    <div style="margin-top:10px;">
+                        <input type="number" id="ans-${docSnap.id}" placeholder="?" style="padding:8px; width:80px;">
+                        <button class="check-btn" style="padding:8px 15px;" onclick="checkQuestion('${docSnap.id}', ${data.correctAnswer})">Check</button>
                         <span id="feedback-${docSnap.id}" style="margin-left:10px; font-weight:bold;"></span>
-                    </div>`;
-            });
+                    </div>
+                </div>`;
+        });
+    }
+    fetchQuestions();
+
+    // --- 3. QUESTION CHECKER ---
+    window.checkQuestion = (id, correct) => {
+        const val = parseFloat(document.getElementById('ans-'+id).value);
+        const feedback = document.getElementById('feedback-'+id);
+        if(val === correct) {
+            feedback.innerText = "✅ Correct!";
+            feedback.style.color = "green";
+        } else {
+            feedback.innerText = "❌ Try again.";
+            feedback.style.color = "red";
         }
-        loadQuestions();
+    }
 
-        window.checkQuestion = (id, correct) => {
-             const val = parseFloat(document.getElementById('ans-'+id).value);
-             const feedback = document.getElementById('feedback-'+id);
-             if(val === correct) {
-                 feedback.innerText = "✅ Correct!";
-                 feedback.style.color = "green";
-             } else {
-                 feedback.innerText = "❌ Try again.";
-                 feedback.style.color = "red";
-             }
+    // --- 4. POLYGON TOOL LOGIC ---
+    const canvas = document.getElementById('polyCanvas');
+    const ctx = canvas.getContext('2d');
+    const slider = document.getElementById('sidesRange');
+    let correctTriangles = 0;
+    let correctDegrees = 0;
+
+    function drawPolygon() {
+        const sides = parseInt(slider.value);
+        correctTriangles = sides - 2;
+        correctDegrees = correctTriangles * 180;
+        document.getElementById('sidesVal').innerText = sides;
+        document.getElementById('user-triangles').value = '';
+        document.getElementById('user-degrees').value = '';
+        document.getElementById('tool-feedback').innerText = '';
+
+        const radius = 100;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let vertices = [];
+        for (let i = 0; i < sides; i++) {
+            const angle = (i * 2 * Math.PI / sides) - (Math.PI / 2);
+            vertices.push({ x: centerX + radius * Math.cos(angle), y: centerY + radius * Math.sin(angle) });
         }
 
-        // 4. INTERACTIVE DRAWING SCRIPT
-        const canvas = document.getElementById('polyCanvas');
-        const ctx = canvas.getContext('2d');
-        const slider = document.getElementById('sidesRange');
-        
-        let correctTriangles = 0;
-        let correctDegrees = 0;
-        const colors = ['#FFD1DC', '#FFE5B4', '#D4F1F4', '#E6E6FA', '#D7F9E9', '#FADADD', '#FFF8DC', '#E0FFFF', '#FFDEAD', '#F0FFF0'];
-
-        function drawPolygon() {
-            const sides = parseInt(slider.value);
-            correctTriangles = sides - 2;
-            correctDegrees = correctTriangles * 180;
-
-            document.getElementById('user-triangles').value = '';
-            document.getElementById('user-degrees').value = '';
-            document.getElementById('tool-feedback').innerText = '';
-
-            const radius = 100;
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('sidesVal').innerText = sides;
-
-            let vertices = [];
-            for (let i = 0; i < sides; i++) {
-                const angle = (i * 2 * Math.PI / sides) - (Math.PI / 2);
-                vertices.push({
-                    x: centerX + radius * Math.cos(angle),
-                    y: centerY + radius * Math.sin(angle)
-                });
-            }
-
-            for (let i = 1; i < sides - 1; i++) {
-                ctx.beginPath();
-                ctx.moveTo(vertices[0].x, vertices[0].y);
-                ctx.lineTo(vertices[i].x, vertices[i].y);
-                ctx.lineTo(vertices[i+1].x, vertices[i+1].y);
-                ctx.closePath();
-                ctx.fillStyle = colors[(i-1) % colors.length];
-                ctx.fill();
-                ctx.strokeStyle = "#555";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-
+        // Draw Triangles
+        for (let i = 1; i < sides - 1; i++) {
             ctx.beginPath();
             ctx.moveTo(vertices[0].x, vertices[0].y);
-            for (let i = 1; i < sides; i++) {
-                ctx.lineTo(vertices[i].x, vertices[i].y);
-            }
-            ctx.closePath();
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 3;
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.arc(vertices[0].x, vertices[0].y, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = "red";
+            ctx.lineTo(vertices[i].x, vertices[i].y);
+            ctx.lineTo(vertices[i+1].x, vertices[i+1].y);
+            ctx.fillStyle = `hsl(${i * 40}, 70%, 80%)`;
             ctx.fill();
+            ctx.stroke();
         }
+    }
 
-        // 5. CHECK TOOL ANSWER
-        window.checkToolAnswer = async () => {
-            const userTri = parseInt(document.getElementById('user-triangles').value);
-            const userDeg = parseInt(document.getElementById('user-degrees').value);
-            const feedback = document.getElementById('tool-feedback');
+    window.checkToolAnswer = async () => {
+        const uTri = parseInt(document.getElementById('user-triangles').value);
+        const uDeg = parseInt(document.getElementById('user-degrees').value);
+        const feed = document.getElementById('tool-feedback');
 
-            if (isNaN(userTri) || isNaN(userDeg)) {
-                feedback.innerText = "⚠️ Please fill in both boxes first.";
-                feedback.style.color = "orange";
-                return;
+        if (uTri === correctTriangles && uDeg === correctDegrees) {
+            feed.innerText = "✅ Perfect! Chapter progress saved.";
+            feed.style.color = "green";
+            if (currentUserId) {
+                await setDoc(doc(db, "students", currentUserId), { finished_polygons: true }, { merge: true });
             }
+        } else {
+            feed.innerText = "❌ Check your count or math.";
+            feed.style.color = "red";
+        }
+    };
 
-            if (userTri === correctTriangles && userDeg === correctDegrees) {
-                feedback.innerText = "✅ Perfect! Progress Saved.";
-                feedback.style.color = "green";
-
-                // --- SAVE PROGRESS TO FIREBASE ---
-                if (currentUserId) {
-                    const studentRef = doc(db, "students", currentUserId);
-                    await setDoc(studentRef, {
-                        finished_polygons: true
-                    }, { merge: true });
-                    console.log("Chapter completion saved to DB!");
-                } else {
-                    alert("Great job! Please sign in at the top to save this to your report card.");
-                }
-                // ---------------------------------
-
-            } else if (userTri === correctTriangles) {
-                feedback.innerText = "Your triangle count is right, but check your multiplication (x 180).";
-                feedback.style.color = "orange";
-            } else {
-                feedback.innerText = "❌ Not quite. Count the colored triangles carefully.";
-                feedback.style.color = "red";
-            }
-        };
-
-        slider.addEventListener('input', drawPolygon);
-        drawPolygon();
-    </script>
-</body>
-</html>
+    slider.addEventListener('input', drawPolygon);
+    drawPolygon();
+</script>
