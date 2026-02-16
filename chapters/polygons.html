@@ -1,163 +1,169 @@
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 5: Polygons</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .tool-container { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 15px; padding: 20px; text-align: center; margin: 20px 0; }
+        canvas { background: white; border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px auto; display: block; }
+        .controls { margin: 20px 0; }
+        input[type=range] { width: 200px; accent-color: #4285F4; }
+        .input-group { margin: 15px 0; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .input-box { text-align: center; }
+        .input-box input { padding: 8px; width: 80px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button.check-btn { background-color: #4285F4; color: white; border: none; padding: 10px 25px; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        #login-section { background: #e8f0fe; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; border: 1px solid #d2e3fc; }
+        #tool-feedback { font-weight: bold; font-size: 1.1em; margin-top: 15px; height: 24px; }
+    </style>
+</head>
+<body>
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
-        authDomain: "dohl-s-geometry.firebaseapp.com",
-        projectId: "dohl-s-geometry",
-        storageBucket: "dohl-s-geometry.firebasestorage.app",
-        messagingSenderId: "92329448606",
-        appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
-        measurementId: "G-2FHN2VX726"
-    };
+    <header>
+        <h1>Chapter 5: Polygons</h1>
+        <p>Interior Angle Sum Theorem</p>
+    </header>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
+    <div class="container" style="max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <a href="../index.html" style="text-decoration: none; color: #4285F4; font-weight: bold;">← Back to Dashboard</a>
+        <br><br>
 
-    let currentUserId = null;
+        <div id="login-section">
+            <span id="user-display">Checking login status...</span>
+            <button id="login-btn" style="margin-left:10px; padding: 5px 10px; cursor: pointer;">Sign in</button>
+        </div>
 
-    // --- 1. LOGIN & AUTH LOGIC ---
-    const loginBtn = document.getElementById('login-btn');
-    const userDisplay = document.getElementById('user-display');
+        <div class="tool-container">
+            <h2>Polygon Explorer</h2>
+            <div class="controls">
+                <label for="sidesRange">Number of Sides (n): <span id="sidesVal" style="font-weight:bold; font-size:1.2em;">5</span></label><br>
+                <input type="range" id="sidesRange" min="3" max="12" value="5">
+            </div>
+            <canvas id="polyCanvas" width="300" height="300"></canvas>
+            <div class="input-group">
+                <div class="input-box"><label>Triangles?</label><br><input type="number" id="user-triangles"></div>
+                <div class="input-box"><label>Total Sum?</label><br><input type="number" id="user-degrees"></div>
+            </div>
+            <button class="check-btn" onclick="checkToolAnswer()">Check My Work</button>
+            <p id="tool-feedback"></p>
+        </div>
 
-    loginBtn.addEventListener('click', () => {
-        if (!currentUserId) {
-            signInWithPopup(auth, provider).catch(err => console.error(err));
-        } else {
-            signOut(auth);
-        }
-    });
+        <hr>
+        <h2>Practice Questions</h2>
+        <div id="question-container">Loading questions...</div>
+    </div>
 
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUserId = user.uid;
-            userDisplay.innerHTML = `Welcome, <b>${user.displayName}</b>!`;
-            loginBtn.innerText = "Sign Out";
-            await setDoc(doc(db, "students", user.uid), {
-                name: user.displayName,
-                email: user.email,
-                lastLogin: new Date()
-            }, { merge: true });
-        } else {
-            currentUserId = null;
-            userDisplay.innerHTML = "Not signed in. Progress will NOT be saved.";
-            loginBtn.innerText = "Sign in with Google";
-        }
-    });
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // --- 2. LOAD QUESTIONS (The "Clean Text" version) ---
-    async function fetchQuestions() {
-        const container = document.getElementById('question-container');
-        const q = query(collection(db, "questions"), where("chapter", "==", "Polygons"));
-        const querySnapshot = await getDocs(q);
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
+            authDomain: "dohl-s-geometry.firebaseapp.com",
+            projectId: "dohl-s-geometry",
+            storageBucket: "dohl-s-geometry.firebasestorage.app",
+            messagingSenderId: "92329448606",
+            appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
+            measurementId: "G-2FHN2VX726"
+        };
 
-        if (querySnapshot.empty) {
-            container.innerHTML = '<p>No questions yet.</p>';
-            return;
-        }
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+        let currentUserId = null;
 
-        container.innerHTML = '';
-        querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-
-            // CLEANING THE TEXT: This removes $ and ^\circ automatically
-            let displayWeightText = data.text
-                .replace(/\$|\^\\circ\$/g, '') // Removes $ and code like ^\circ$
-                .replace(/\\circ/g, '°');     // Replaces \circ with a real ° symbol
-
-            // SMART IMAGE: Only shows if the URL is valid
-            const imageTag = (data.imageUrl && data.imageUrl.length > 5) 
-                ? `<img src="${data.imageUrl}" style="max-width:100%; border-radius:8px; margin: 15px 0; display:block;">` 
-                : "";
-
-            container.innerHTML += `
-                <div style="border:1px solid #ddd; padding:20px; margin-bottom:20px; border-radius:10px; background:#fff;">
-                    <h3>${data.title}</h3>
-                    <p style="font-size:1.1em;">${displayWeightText}</p>
-                    ${imageTag}
-                    <div style="margin-top:10px;">
-                        <input type="number" id="ans-${docSnap.id}" placeholder="?" style="padding:8px; width:80px;">
-                        <button class="check-btn" style="padding:8px 15px;" onclick="checkQuestion('${docSnap.id}', ${data.correctAnswer})">Check</button>
-                        <span id="feedback-${docSnap.id}" style="margin-left:10px; font-weight:bold;"></span>
-                    </div>
-                </div>`;
-        });
-    }
-    fetchQuestions();
-
-    // --- 3. QUESTION CHECKER ---
-    window.checkQuestion = (id, correct) => {
-        const val = parseFloat(document.getElementById('ans-'+id).value);
-        const feedback = document.getElementById('feedback-'+id);
-        if(val === correct) {
-            feedback.innerText = "✅ Correct!";
-            feedback.style.color = "green";
-        } else {
-            feedback.innerText = "❌ Try again.";
-            feedback.style.color = "red";
-        }
-    }
-
-    // --- 4. POLYGON TOOL LOGIC ---
-    const canvas = document.getElementById('polyCanvas');
-    const ctx = canvas.getContext('2d');
-    const slider = document.getElementById('sidesRange');
-    let correctTriangles = 0;
-    let correctDegrees = 0;
-
-    function drawPolygon() {
-        const sides = parseInt(slider.value);
-        correctTriangles = sides - 2;
-        correctDegrees = correctTriangles * 180;
-        document.getElementById('sidesVal').innerText = sides;
-        document.getElementById('user-triangles').value = '';
-        document.getElementById('user-degrees').value = '';
-        document.getElementById('tool-feedback').innerText = '';
-
-        const radius = 100;
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        let vertices = [];
-        for (let i = 0; i < sides; i++) {
-            const angle = (i * 2 * Math.PI / sides) - (Math.PI / 2);
-            vertices.push({ x: centerX + radius * Math.cos(angle), y: centerY + radius * Math.sin(angle) });
-        }
-
-        // Draw Triangles
-        for (let i = 1; i < sides - 1; i++) {
-            ctx.beginPath();
-            ctx.moveTo(vertices[0].x, vertices[0].y);
-            ctx.lineTo(vertices[i].x, vertices[i].y);
-            ctx.lineTo(vertices[i+1].x, vertices[i+1].y);
-            ctx.fillStyle = `hsl(${i * 40}, 70%, 80%)`;
-            ctx.fill();
-            ctx.stroke();
-        }
-    }
-
-    window.checkToolAnswer = async () => {
-        const uTri = parseInt(document.getElementById('user-triangles').value);
-        const uDeg = parseInt(document.getElementById('user-degrees').value);
-        const feed = document.getElementById('tool-feedback');
-
-        if (uTri === correctTriangles && uDeg === correctDegrees) {
-            feed.innerText = "✅ Perfect! Chapter progress saved.";
-            feed.style.color = "green";
-            if (currentUserId) {
-                await setDoc(doc(db, "students", currentUserId), { finished_polygons: true }, { merge: true });
+        // AUTH LOGIC
+        onAuthStateChanged(auth, async (user) => {
+            const display = document.getElementById('user-display');
+            const btn = document.getElementById('login-btn');
+            if (user) {
+                currentUserId = user.uid;
+                display.innerHTML = `Welcome, <b>${user.displayName}</b>!`;
+                btn.innerText = "Sign Out";
+                await setDoc(doc(db, "students", user.uid), { name: user.displayName, email: user.email, lastLogin: new Date() }, { merge: true });
+            } else {
+                currentUserId = null;
+                display.innerText = "Not signed in.";
+                btn.innerText = "Sign in with Google";
             }
-        } else {
-            feed.innerText = "❌ Check your count or math.";
-            feed.style.color = "red";
-        }
-    };
+        });
 
-    slider.addEventListener('input', drawPolygon);
-    drawPolygon();
-</script>
+        document.getElementById('login-btn').onclick = () => {
+            if (!auth.currentUser) signInWithPopup(auth, provider);
+            else signOut(auth);
+        };
+
+        // LOAD QUESTIONS
+        async function fetchQuestions() {
+            const container = document.getElementById('question-container');
+            const q = query(collection(db, "questions"), where("chapter", "==", "Polygons"));
+            try {
+                const querySnapshot = await getDocs(q);
+                container.innerHTML = '';
+                if (querySnapshot.empty) { container.innerHTML = '<p>No questions yet.</p>'; return; }
+                
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    let cleanText = data.text.replace(/\$|\^\\circ\$/g, '').replace(/\\circ/g, '°');
+                    const img = data.imageUrl ? `<img src="${data.imageUrl}" style="max-width:100%; border-radius:8px; margin: 10px 0; display:block;">` : '';
+                    
+                    container.innerHTML += `
+                        <div style="border:1px solid #ddd; padding:15px; margin-bottom:15px; border-radius:8px;">
+                            <h3>${data.title}</h3>
+                            <p>${cleanText}</p>
+                            ${img}
+                            <input type="number" id="ans-${docSnap.id}" style="width:80px;">
+                            <button onclick="checkQuestion('${docSnap.id}', ${data.correctAnswer})">Check</button>
+                            <span id="feedback-${docSnap.id}"></span>
+                        </div>`;
+                });
+            } catch (e) { container.innerHTML = "Error loading questions."; }
+        }
+        fetchQuestions();
+
+        window.checkQuestion = (id, correct) => {
+            const val = parseFloat(document.getElementById('ans-'+id).value);
+            const feed = document.getElementById('feedback-'+id);
+            if (val === correct) { feed.innerText = " ✅"; feed.style.color = "green"; }
+            else { feed.innerText = " ❌"; feed.style.color = "red"; }
+        };
+
+        // DRAWING LOGIC
+        const canvas = document.getElementById('polyCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('sidesRange');
+        let cTri = 0, cDeg = 0;
+
+        function draw() {
+            const n = parseInt(slider.value);
+            cTri = n - 2; cDeg = cTri * 180;
+            document.getElementById('sidesVal').innerText = n;
+            ctx.clearRect(0,0,300,300);
+            let pts = [];
+            for(let i=0; i<n; i++) {
+                let a = (i*2*Math.PI/n) - Math.PI/2;
+                pts.push({x: 150+100*Math.cos(a), y: 150+100*Math.sin(a)});
+            }
+            for(let i=1; i<n-1; i++) {
+                ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+                ctx.lineTo(pts[i].x, pts[i].y); ctx.lineTo(pts[i+1].x, pts[i+1].y);
+                ctx.fillStyle = `hsl(${i*45}, 70%, 85%)`; ctx.fill(); ctx.stroke();
+            }
+        }
+        slider.oninput = draw; draw();
+
+        window.checkToolAnswer = async () => {
+            const uT = parseInt(document.getElementById('user-triangles').value);
+            const uD = parseInt(document.getElementById('user-degrees').value);
+            const f = document.getElementById('tool-feedback');
+            if (uT === cTri && uD === cDeg) {
+                f.innerText = "✅ Correct!"; f.style.color = "green";
+                if(currentUserId) await setDoc(doc(db, "students", currentUserId), { finished_polygons: true }, { merge: true });
+            } else { f.innerText = "❌ Try again."; f.style.color = "red"; }
+        };
+    </script>
+</body>
+</html>
