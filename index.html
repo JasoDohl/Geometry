@@ -3,192 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dohl's Geometry Review</title>
+    <title>Geometry Class Dashboard</title>
     <link rel="stylesheet" href="style.css">
-    
     <style>
-        /* Basic styling for the login area */
-        #auth-container {
-            margin-top: 20px;
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px;
         }
-
-        #user-info {
-            background: #e8f4fd;
-            padding: 15px;
-            margin: 20px auto;
-            max-width: 400px;
-            border-radius: 8px;
-            border: 1px solid #b6d4fe;
-            display: none; /* Hidden by default until logged in */
+        .chapter-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.2s;
+            text-decoration: none;
+            color: #333;
+            border: 2px solid transparent;
         }
-
-        #login-btn {
-            background-color: #4285F4; /* Google Blue */
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            transition: background 0.3s;
+        .chapter-card:hover {
+            transform: translateY(-5px);
+            border-color: #4285F4;
         }
-
-        #login-btn:hover {
-            background-color: #357ae8;
-        }
-
-        #logout-btn {
-            background-color: #d9534f; /* Bootstrap Red */
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
+        .chapter-card h3 { color: #4285F4; margin-bottom: 10px; }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            background: #eee;
             margin-top: 10px;
-        }
-
-        #student-name {
-            color: #2c3e50;
         }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Geometry Interactive Review</h1>
-        <p>Sign in to track your progress & save your scores</p>
-        
-        <div id="auth-container">
-            <button id="login-btn">Sign in with Google</button>
-        </div>
-
-        <div id="user-info">
-            <h3>Welcome, <span id="student-name">Student</span>!</h3>
-            <p style="font-size: 0.9em; color: #666;">Email: <span id="student-email"></span></p>
-            <button id="logout-btn">Sign Out</button>
-        </div>
+        <h1>Geometry Dashboard</h1>
+        <p>Welcome back! Choose a chapter to start learning.</p>
     </header>
 
-    <main class="chapter-grid">
-        <a href="chapters/basics.html" class="card">
-            <div class="card-icon">📐</div>
-            <h2>Chapter 1: Basics</h2>
-            <p>Points, Lines, Planes</p>
-        </a>
+    <div class="container">
+        <div class="dashboard-grid">
+            
+            <a href="chapters/triangles.html" class="chapter-card">
+                <h3>Chapter 2</h3>
+                <p>Properties of Triangles</p>
+                <span class="status-badge">Available</span>
+            </a>
 
-        <a href="chapters/triangles.html" class="card">
-            <div class="card-icon">🔺</div>
-            <h2>Chapter 2: Triangles</h2>
-            <p>Congruence & Pythagoras</p>
-        </a>
+            <a href="chapters/parallel.html" class="chapter-card">
+                <h3>Chapter 4</h3>
+                <p>Parallel Lines & Transversals</p>
+                <span class="status-badge">Available</span>
+            </a>
 
-        <a href="chapters/circles.html" class="card">
-            <div class="card-icon">⭕</div>
-            <h2>Chapter 3: Circles</h2>
-            <p>Area & Circumference</p>
-        </a>
-        <a href="chapters/parallel.html" class="card">
-    <div class="card-icon">🛤️</div>
-    <h2>Chapter 4: Parallel Lines</h2>
-    <p>Transversals & Angle Pairs</p>
-    </a>
-        <a href="chapters/polygons.html" class="card">
-    <div class="card-icon">🔷</div>
-    <h2>Chapter 5: Polygons</h2>
-    <p>Interior Angles & Sums</p>
-    </a>
-    </main>
+            <a href="chapters/polygons.html" class="chapter-card">
+                <h3>Chapter 5</h3>
+                <p>Polygons & Angle Sums</p>
+                <span class="status-badge">Available</span>
+            </a>
 
-    <footer>
-        <p>Powered by Firebase & GitHub Pages</p>
-    </footer>
+            <a href="chapters/trigonometry.html" class="chapter-card">
+                <h3>Chapter 6</h3>
+                <p>Trigonometry (SOH CAH TOA)</p>
+                <span class="status-badge" style="background: #e8f0fe; color: #1967d2;">New Topic!</span>
+            </a>
 
-    <script type="module">
-        // 1. Import the functions we need from the Firebase SDK
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        </div>
 
-        // 2. Your Web App's Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
-            authDomain: "dohl-s-geometry.firebaseapp.com",
-            projectId: "dohl-s-geometry",
-            storageBucket: "dohl-s-geometry.firebasestorage.app",
-            messagingSenderId: "92329448606",
-            appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
-            measurementId: "G-2FHN2VX726"
-        };
+        <hr style="margin: 40px 0;">
 
-        // 3. Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app); // Connect to Firestore Database
-        const provider = new GoogleAuthProvider();
+        <div style="text-align: center;">
+            <h2>Teacher Tools</h2>
+            <a href="admin.html" style="color: #666; text-decoration: none;">Go to Admin Panel →</a>
+        </div>
+    </div>
 
-        // 4. Handle "Sign in with Google" Button Click
-        const loginBtn = document.getElementById('login-btn');
-        if (loginBtn) {
-            loginBtn.addEventListener('click', () => {
-                signInWithPopup(auth, provider)
-                    .then((result) => {
-                        const user = result.user;
-                        console.log("Login Success:", user.displayName);
-                        saveUserToDB(user); // Save their info to database
-                    })
-                    .catch((error) => {
-                        console.error("Login Error:", error);
-                        alert("Could not sign in: " + error.message);
-                    });
-            });
-        }
-
-        // 5. Handle "Sign Out" Button Click
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
-                signOut(auth).then(() => {
-                    console.log("User signed out");
-                    // We reload the page to clear the user data from the screen
-                    window.location.reload(); 
-                }).catch((error) => {
-                    console.error("Logout Error:", error);
-                });
-            });
-        }
-
-        // 6. Monitor Auth State (Runs automatically when page loads)
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // User is logged in
-                document.getElementById('auth-container').style.display = 'none';
-                document.getElementById('user-info').style.display = 'block';
-                document.getElementById('student-name').innerText = user.displayName;
-                document.getElementById('student-email').innerText = user.email;
-            } else {
-                // User is NOT logged in
-                document.getElementById('auth-container').style.display = 'block';
-                document.getElementById('user-info').style.display = 'none';
-            }
-        });
-
-        // 7. Function to Save Student Data to Firestore
-        async function saveUserToDB(user) {
-            try {
-                // This creates a document in the "students" collection
-                // The document ID will be the user's unique Google ID
-                await setDoc(doc(db, "students", user.uid), {
-                    name: user.displayName,
-                    email: user.email,
-                    photoURL: user.photoURL,
-                    lastLogin: serverTimestamp() // Updates the time every time they login
-                }, { merge: true }); // 'merge: true' prevents overwriting existing data fields
-                console.log("User data saved to Firestore");
-            } catch (e) {
-                console.error("Error adding document: ", e);
-            }
-        }
-    </script>
 </body>
 </html>
