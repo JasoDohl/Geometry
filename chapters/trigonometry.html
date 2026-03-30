@@ -73,106 +73,156 @@
         <div id="question-container">Loading questions from database...</div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+   <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
-            authDomain: "dohl-s-geometry.firebaseapp.com",
-            projectId: "dohl-s-geometry",
-            storageBucket: "dohl-s-geometry.firebasestorage.app",
-            messagingSenderId: "92329448606",
-            appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
-            measurementId: "G-2FHN2VX726"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyBNRSYfjGERQOwJxtVkHWnk7z2o0SAvzFs",
+        authDomain: "dohl-s-geometry.firebaseapp.com",
+        projectId: "dohl-s-geometry",
+        storageBucket: "dohl-s-geometry.firebasestorage.app",
+        messagingSenderId: "92329448606",
+        appId: "1:92329448606:web:dc62534a6c4c972b7f178f",
+        measurementId: "G-2FHN2VX726"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-        let currentUserId = null;
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+    let currentUserId = null;
 
-        // --- AUTH ---
-        onAuthStateChanged(auth, async (user) => {
-            const display = document.getElementById('user-display');
-            const btn = document.getElementById('login-btn');
-            if (user) {
-                currentUserId = user.uid;
-                display.innerHTML = `Signed in as <b>${user.displayName}</b>`;
-                btn.innerText = "Logout";
-                await setDoc(doc(db, "students", user.uid), { name: user.displayName, lastLogin: new Date() }, { merge: true });
+    // --- AUTH LOGIC ---
+    onAuthStateChanged(auth, async (user) => {
+        const display = document.getElementById('user-display');
+        const btn = document.getElementById('login-btn');
+        if (user) {
+            currentUserId = user.uid;
+            display.innerHTML = `Signed in as <b>${user.displayName}</b>`;
+            btn.innerText = "Logout";
+        } else {
+            currentUserId = null;
+            display.innerText = "Sign in to save progress.";
+            btn.innerText = "Login";
+        }
+    });
+
+    // --- DRAG AND DROP LOGIC ---
+    const dCanvas = document.getElementById('dragCanvas');
+    const dCtx = dCanvas.getContext('2d');
+    const targets = { 
+        Hypotenuse: { x: 160, y: 80, ok: false }, 
+        Opposite: { x: 310, y: 110, ok: false }, 
+        Adjacent: { x: 180, y: 215, ok: false } 
+    };
+
+    window.initDragGame = function() {
+        const container = document.getElementById('label-container');
+        if(!container) return;
+        container.innerHTML = "";
+        document.getElementById('drag-feedback').innerText = "";
+        Object.keys(targets).forEach(k => targets[k].ok = false);
+        
+        ["Opposite", "Hypotenuse", "Adjacent"].sort(() => Math.random() - 0.5).forEach(txt => {
+            const d = document.createElement('div');
+            d.className = 'drag-label'; 
+            d.innerText = txt; 
+            d.draggable = true;
+            d.style.cursor = "grab";
+            d.ondragstart = (e) => e.dataTransfer.setData("text", txt);
+            container.appendChild(d);
+        });
+        drawDragTriangle();
+    };
+
+    function drawDragTriangle() {
+        if(!dCanvas) return;
+        dCtx.clearRect(0,0,400,250);
+        dCtx.lineWidth = 4; 
+        dCtx.strokeStyle = "#333";
+        dCtx.beginPath(); 
+        dCtx.moveTo(50, 200); 
+        dCtx.lineTo(300, 200); 
+        dCtx.lineTo(300, 50); 
+        dCtx.closePath(); 
+        dCtx.stroke();
+        dCtx.strokeRect(285, 185, 15, 15); // Right angle
+        
+        dCtx.fillStyle = "#d93025"; 
+        dCtx.font = "24px Arial"; 
+        dCtx.fillText("θ", 75, 195);
+
+        Object.keys(targets).forEach(k => {
+            if(targets[k].ok) {
+                dCtx.fillStyle = "#34a853";
+                dCtx.fillText("✅ " + k, targets[k].x, targets[k].y);
             } else {
-                currentUserId = null;
-                display.innerText = "Sign in to save progress.";
-                btn.innerText = "Login";
+                dCtx.fillStyle = "#f0f0f0";
+                dCtx.beginPath(); dCtx.arc(targets[k].x+30, targets[k].y, 12, 0, Math.PI*2); dCtx.fill();
             }
         });
-        document.getElementById('login-btn').onclick = () => auth.currentUser ? signOut(auth) : signInWithPopup(auth, provider);
+    }
 
-        // --- DRAG AND DROP LOGIC ---
-        const dCanvas = document.getElementById('dragCanvas');
-        const dCtx = dCanvas.getContext('2d');
-        const targets = { 
-            Hypotenuse: { x: 160, y: 80, ok: false }, 
-            Opposite: { x: 310, y: 110, ok: false }, 
-            Adjacent: { x: 180, y: 215, ok: false } 
-        };
-
-        window.initDragGame = () => {
-            const container = document.getElementById('label-container');
-            container.innerHTML = "";
-            document.getElementById('drag-feedback').innerText = "";
-            Object.keys(targets).forEach(k => targets[k].ok = false);
-            ["Opposite", "Hypotenuse", "Adjacent"].sort(() => Math.random() - 0.5).forEach(txt => {
-                const d = document.createElement('div');
-                d.className = 'drag-label'; d.innerText = txt; d.draggable = true;
-                d.ondragstart = (e) => e.dataTransfer.setData("text", txt);
-                container.appendChild(d);
-            });
+    dCanvas.ondragover = (e) => e.preventDefault();
+    dCanvas.ondrop = (e) => {
+        e.preventDefault();
+        const name = e.dataTransfer.getData("text");
+        const rect = dCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const target = targets[name];
+        const dist = Math.sqrt(Math.pow(x - (target.x+30), 2) + Math.pow(y - target.y, 2));
+        
+        if(dist < 50) {
+            target.ok = true;
+            const labels = document.getElementsByClassName('drag-label');
+            for(let l of labels) if(l.innerText === name) l.style.visibility = "hidden";
             drawDragTriangle();
-        };
-
-        function drawDragTriangle() {
-            dCtx.clearRect(0,0,400,250);
-            dCtx.lineWidth = 4; dCtx.strokeStyle = "#333";
-            dCtx.beginPath(); dCtx.moveTo(50, 200); dCtx.lineTo(300, 200); dCtx.lineTo(300, 50); dCtx.closePath(); dCtx.stroke();
-            dCtx.strokeRect(285, 185, 15, 15);
-            dCtx.fillStyle = "#d93025"; dCtx.font = "20px Arial"; dCtx.fillText("θ", 85, 190);
-            Object.keys(targets).forEach(k => {
-                if(targets[k].ok) dCtx.fillText("✅ " + k, targets[k].x, targets[k].y);
-                else { dCtx.fillStyle = "#eee"; dCtx.beginPath(); dCtx.arc(targets[k].x+30, targets[k].y, 10, 0, 7); dCtx.fill(); }
-            });
+            document.getElementById('drag-feedback').innerText = "Correct Placement!";
+            document.getElementById('drag-feedback').style.color = "green";
         }
+    };
 
-        dCanvas.ondragover = (e) => e.preventDefault();
-        dCanvas.ondrop = (e) => {
-            const name = e.dataTransfer.getData("text");
-            const rect = dCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left, y = e.clientY - rect.top;
-            const dist = Math.sqrt(Math.pow(x - (targets[name].x+30), 2) + Math.pow(y - targets[name].y, 2));
-            if(dist < 50) {
-                targets[name].ok = true;
-                document.querySelector(`.drag-label[style*="visibility: hidden"]`); // Cleanup
-                const labels = document.getElementsByClassName('drag-label');
-                for(let l of labels) if(l.innerText === name) l.style.visibility = "hidden";
-                drawDragTriangle();
-            }
-        };
+    // --- VISUALIZER LOGIC ---
+    const tCanvas = document.getElementById('trigCanvas');
+    const tCtx = tCanvas.getContext('2d');
+    const slider = document.getElementById('angleRange');
 
-        // --- INTERACTIVE ANGLE LOGIC ---
-        const tCanvas = document.getElementById('trigCanvas');
-        const tCtx = tCanvas.getContext('2d');
-        const slider = document.getElementById('angleRange');
+    window.drawTrig = function() {
+        if(!tCanvas || !slider) return;
+        const deg = slider.value;
+        const rad = deg * Math.PI / 180;
+        const oppNum = (10 * Math.sin(rad)).toFixed(1);
+        
+        document.getElementById('angleVal').innerText = deg + "°";
+        document.getElementById('oppVal').innerText = oppNum;
+        
+        tCtx.clearRect(0,0,400,200);
+        tCtx.lineWidth = 3;
+        tCtx.strokeStyle = "#4285F4";
+        
+        const startX = 50, startY = 170;
+        const hypLen = 150;
+        const endX = startX + hypLen * Math.cos(rad);
+        const endY = startY - hypLen * Math.sin(rad);
 
-        function drawTrig() {
-            const deg = slider.value;
-            const rad = deg * Math.PI / 180;
-            const opp = (10 * Math.sin(rad)).toFixed(1);
-            document.getElementById('angleVal').innerText = deg + "°";
-            document.getElementById('oppVal').innerText = opp;
-            
-            tCtx.clearRect(0,0,400,200);
-            tCtx.beginPath(); tCtx.moveTo(50, 150); tCtx.lineTo(50 + 150 * Math.cos(rad), 150); tCtx.lineTo(50 + 150 * Math.cos(rad), 150 - 150 * Math.sin(rad)); tCtx.closePath();
-            tCtx.fillStyle = "#e8f0fe"; tCtx.fill(); tCtx.stroke
+        tCtx.beginPath();
+        tCtx.moveTo(startX, startY);
+        tCtx.lineTo(endX, startY);
+        tCtx.lineTo(endX, endY);
+        tCtx.closePath();
+        tCtx.fillStyle = "#e8f0fe";
+        tCtx.fill();
+        tCtx.stroke();
+        tCtx.strokeRect(endX-15, startY-15, 15, 15);
+    };
+
+    if(slider) slider.oninput = window.drawTrig;
+
+    // Initialize both games
+    initDragGame();
+    drawTrig();
+</script>
