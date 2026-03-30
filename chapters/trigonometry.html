@@ -6,69 +6,71 @@
     <title>Chapter 6: Trigonometry</title>
     <link rel="stylesheet" href="../style.css">
     <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        
+        /* Tool Styles */
         .tool-container { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 15px; padding: 20px; text-align: center; margin: 20px 0; }
-        canvas { background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 20px auto; display: block; }
-        .controls { margin: 20px 0; }
-        input[type=range] { width: 200px; accent-color: #4285F4; }
-        .input-group { margin: 15px 0; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
-        .input-box { text-align: center; }
-        .input-box input { padding: 8px; width: 80px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
-        button.check-btn { background-color: #4285F4; color: white; border: none; padding: 10px 25px; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        canvas { background: white; border: 1px solid #ddd; border-radius: 8px; margin: 10px auto; display: block; touch-action: none; }
+        
+        /* Drag and Drop Styles */
+        #label-container { margin-top: 20px; display: flex; justify-content: center; gap: 15px; min-height: 50px; }
+        .drag-label { padding: 10px 20px; background: #4285F4; color: white; border-radius: 8px; cursor: grab; font-weight: bold; box-shadow: 0 3px 6px rgba(0,0,0,0.16); transition: 0.2s; }
+        .drag-label:active { cursor: grabbing; transform: scale(0.95); }
+        
+        /* UI Elements */
+        .stats-bar { display: flex; justify-content: space-around; background: #333; color: white; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 0.9em; }
         #login-section { background: #e8f0fe; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; border: 1px solid #d2e3fc; }
-        #tool-feedback { font-weight: bold; font-size: 1.1em; margin-top: 15px; height: 24px; }
-        .trig-stats { display: flex; justify-content: space-around; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; max-width: 400px; margin: 0 auto; }
+        .check-btn { background: #34a853; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .feedback { font-weight: bold; margin-top: 10px; height: 24px; }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>Chapter 6: Trigonometry</h1>
-        <p>Right Triangles and SOH CAH TOA</p>
-    </header>
-
-    <div class="container" style="max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+    <div class="container">
         <a href="../index.html" style="text-decoration: none; color: #4285F4; font-weight: bold;">← Back to Dashboard</a>
-        <br><br>
+        
+        <header style="text-align: center; margin-bottom: 30px;">
+            <h1>Trigonometry: SOH CAH TOA</h1>
+            <p>Mastering Right Triangle Relationships</p>
+        </header>
 
         <div id="login-section">
             <span id="user-display">Checking login status...</span>
-            <button id="login-btn" style="margin-left:10px; padding: 5px 10px; cursor: pointer;">Sign in</button>
+            <button id="login-btn" style="cursor:pointer; margin-left: 10px;">Sign in</button>
         </div>
 
         <div class="tool-container">
-            <h2>Right Triangle Visualizer</h2>
-            <p>Drag the slider to change the angle. Watch how the Opposite and Adjacent sides change!</p>
+            <h2>Challenge 1: Identify the Sides</h2>
+            <p>Drag each label to the correct side relative to Angle <b>θ</b>.</p>
+            <canvas id="dragCanvas" width="400" height="250"></canvas>
+            <div id="label-container"></div>
+            <p id="drag-feedback" class="feedback"></p>
+            <button onclick="initDragGame()" style="font-size: 0.8em; background: #666; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Reset Labels</button>
+        </div>
+
+        <div class="tool-container">
+            <h2>Challenge 2: SOH Visualizer</h2>
+            <p>Adjust the angle and calculate the Sine (Opposite / Hypotenuse).</p>
+            <input type="range" id="angleRange" min="15" max="75" value="30" style="width: 80%;">
+            <div class="stats-bar">
+                <span>Angle: <b id="angleVal">30°</b></span>
+                <span>Opposite: <b id="oppVal">5.0</b></span>
+                <span>Hypotenuse: <b>10.0</b></span>
+            </div>
+            <canvas id="trigCanvas" width="400" height="200"></canvas>
             
-            <div class="controls">
-                <label for="angleRange">Angle (&theta;): <span id="angleVal" style="font-weight:bold; font-size:1.2em;">30°</span></label><br>
-                <input type="range" id="angleRange" min="15" max="75" value="30">
-            </div>
-
-            <div class="trig-stats">
-                <div><strong>Hypotenuse:</strong> 10</div>
-                <div><strong>Opposite:</strong> <span id="oppVal">5.0</span></div>
-                <div><strong>Adjacent:</strong> <span id="adjVal">8.7</span></div>
-            </div>
-
-            <canvas id="trigCanvas" width="400" height="250"></canvas>
-
-            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffeeba; max-width: 500px; margin: 20px auto;">
-                <strong>Challenge:</strong> Set the angle to <strong>30°</strong>. <br>
-                Calculate the Sine of 30° (Opposite &divide; Hypotenuse).
-                <div class="input-group">
-                    <div class="input-box">
-                        <input type="number" id="user-sin" placeholder="0.00" step="0.01">
-                    </div>
-                </div>
-                <button class="check-btn" onclick="checkToolAnswer()">Check My Work</button>
-                <p id="tool-feedback"></p>
+            <div style="margin-top: 15px;">
+                <label>Set angle to 30°. What is Sine(30)? </label>
+                <input type="number" id="user-sin" step="0.1" style="width: 60px; padding: 5px;">
+                <button class="check-btn" onclick="checkSin()">Check</button>
+                <p id="sin-feedback" class="feedback"></p>
             </div>
         </div>
 
         <hr>
-        
         <h2>Practice Questions</h2>
-        <div id="question-container">Loading questions...</div>
+        <div id="question-container">Loading questions from database...</div>
     </div>
 
     <script type="module">
@@ -92,151 +94,85 @@
         const provider = new GoogleAuthProvider();
         let currentUserId = null;
 
-        // AUTH LOGIC
+        // --- AUTH ---
         onAuthStateChanged(auth, async (user) => {
             const display = document.getElementById('user-display');
             const btn = document.getElementById('login-btn');
             if (user) {
                 currentUserId = user.uid;
-                display.innerHTML = `Welcome, <b>${user.displayName}</b>!`;
-                btn.innerText = "Sign Out";
-                await setDoc(doc(db, "students", user.uid), { name: user.displayName, email: user.email, lastLogin: new Date() }, { merge: true });
+                display.innerHTML = `Signed in as <b>${user.displayName}</b>`;
+                btn.innerText = "Logout";
+                await setDoc(doc(db, "students", user.uid), { name: user.displayName, lastLogin: new Date() }, { merge: true });
             } else {
                 currentUserId = null;
-                display.innerText = "Not signed in.";
-                btn.innerText = "Sign in with Google";
+                display.innerText = "Sign in to save progress.";
+                btn.innerText = "Login";
             }
         });
+        document.getElementById('login-btn').onclick = () => auth.currentUser ? signOut(auth) : signInWithPopup(auth, provider);
 
-        document.getElementById('login-btn').onclick = () => {
-            if (!auth.currentUser) signInWithPopup(auth, provider);
-            else signOut(auth);
+        // --- DRAG AND DROP LOGIC ---
+        const dCanvas = document.getElementById('dragCanvas');
+        const dCtx = dCanvas.getContext('2d');
+        const targets = { 
+            Hypotenuse: { x: 160, y: 80, ok: false }, 
+            Opposite: { x: 310, y: 110, ok: false }, 
+            Adjacent: { x: 180, y: 215, ok: false } 
         };
 
-        // LOAD QUESTIONS FROM FIREBASE
-        async function fetchQuestions() {
-            const container = document.getElementById('question-container');
-            // Looks for questions tagged as "Trigonometry"
-            const q = query(collection(db, "questions"), where("chapter", "==", "Trigonometry"));
-            try {
-                const querySnapshot = await getDocs(q);
-                container.innerHTML = '';
-                if (querySnapshot.empty) { container.innerHTML = '<p>No questions yet.</p>'; return; }
-                
-                querySnapshot.forEach((docSnap) => {
-                    const data = docSnap.data();
-                    let cleanText = data.text.replace(/\$|\^\\circ\$/g, '').replace(/\\circ/g, '°');
-                    const img = data.imageUrl ? `<img src="${data.imageUrl}" style="max-width:100%; border-radius:8px; margin: 10px 0; display:block;">` : '';
-                    
-                    container.innerHTML += `
-                        <div style="border:1px solid #ddd; padding:15px; margin-bottom:15px; border-radius:8px;">
-                            <h3>${data.title}</h3>
-                            <p>${cleanText}</p>
-                            ${img}
-                            <input type="number" id="ans-${docSnap.id}" style="width:80px;" step="0.01">
-                            <button onclick="checkQuestion('${docSnap.id}', ${data.correctAnswer})">Check</button>
-                            <span id="feedback-${docSnap.id}"></span>
-                        </div>`;
-                });
-            } catch (e) { container.innerHTML = "Error loading questions."; }
+        window.initDragGame = () => {
+            const container = document.getElementById('label-container');
+            container.innerHTML = "";
+            document.getElementById('drag-feedback').innerText = "";
+            Object.keys(targets).forEach(k => targets[k].ok = false);
+            ["Opposite", "Hypotenuse", "Adjacent"].sort(() => Math.random() - 0.5).forEach(txt => {
+                const d = document.createElement('div');
+                d.className = 'drag-label'; d.innerText = txt; d.draggable = true;
+                d.ondragstart = (e) => e.dataTransfer.setData("text", txt);
+                container.appendChild(d);
+            });
+            drawDragTriangle();
+        };
+
+        function drawDragTriangle() {
+            dCtx.clearRect(0,0,400,250);
+            dCtx.lineWidth = 4; dCtx.strokeStyle = "#333";
+            dCtx.beginPath(); dCtx.moveTo(50, 200); dCtx.lineTo(300, 200); dCtx.lineTo(300, 50); dCtx.closePath(); dCtx.stroke();
+            dCtx.strokeRect(285, 185, 15, 15);
+            dCtx.fillStyle = "#d93025"; dCtx.font = "20px Arial"; dCtx.fillText("θ", 85, 190);
+            Object.keys(targets).forEach(k => {
+                if(targets[k].ok) dCtx.fillText("✅ " + k, targets[k].x, targets[k].y);
+                else { dCtx.fillStyle = "#eee"; dCtx.beginPath(); dCtx.arc(targets[k].x+30, targets[k].y, 10, 0, 7); dCtx.fill(); }
+            });
         }
-        fetchQuestions();
 
-        window.checkQuestion = (id, correct) => {
-            const val = parseFloat(document.getElementById('ans-'+id).value);
-            const feed = document.getElementById('feedback-'+id);
-            if (val === correct) { feed.innerText = " ✅"; feed.style.color = "green"; }
-            else { feed.innerText = " ❌"; feed.style.color = "red"; }
+        dCanvas.ondragover = (e) => e.preventDefault();
+        dCanvas.ondrop = (e) => {
+            const name = e.dataTransfer.getData("text");
+            const rect = dCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left, y = e.clientY - rect.top;
+            const dist = Math.sqrt(Math.pow(x - (targets[name].x+30), 2) + Math.pow(y - targets[name].y, 2));
+            if(dist < 50) {
+                targets[name].ok = true;
+                document.querySelector(`.drag-label[style*="visibility: hidden"]`); // Cleanup
+                const labels = document.getElementsByClassName('drag-label');
+                for(let l of labels) if(l.innerText === name) l.style.visibility = "hidden";
+                drawDragTriangle();
+            }
         };
 
-        // INTERACTIVE CANVAS DRAWING LOGIC
-        const canvas = document.getElementById('trigCanvas');
-        const ctx = canvas.getContext('2d');
+        // --- INTERACTIVE ANGLE LOGIC ---
+        const tCanvas = document.getElementById('trigCanvas');
+        const tCtx = tCanvas.getContext('2d');
         const slider = document.getElementById('angleRange');
 
-        function drawTriangle() {
-            const angleDegrees = parseInt(slider.value);
-            document.getElementById('angleVal').innerText = angleDegrees + "°";
+        function drawTrig() {
+            const deg = slider.value;
+            const rad = deg * Math.PI / 180;
+            const opp = (10 * Math.sin(rad)).toFixed(1);
+            document.getElementById('angleVal').innerText = deg + "°";
+            document.getElementById('oppVal').innerText = opp;
             
-            // Math calculations
-            const angleRadians = angleDegrees * (Math.PI / 180);
-            const hypotenuseLength = 150; // Visual scale length
-            const displayHypotenuse = 10; // The number we show the students
-            
-            const opposite = displayHypotenuse * Math.sin(angleRadians);
-            const adjacent = displayHypotenuse * Math.cos(angleRadians);
-            
-            // Update the text boxes above the canvas
-            document.getElementById('oppVal').innerText = opposite.toFixed(1);
-            document.getElementById('adjVal').innerText = adjacent.toFixed(1);
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Drawing Coordinates
-            const startX = 50;
-            const startY = 200; // Bottom left corner
-            const endX = startX + (hypotenuseLength * Math.cos(angleRadians));
-            const endY = startY - (hypotenuseLength * Math.sin(angleRadians));
-
-            // Draw the Triangle
-            ctx.beginPath();
-            ctx.moveTo(startX, startY); // Bottom Left (Angle)
-            ctx.lineTo(endX, startY);   // Bottom Right (Right Angle)
-            ctx.lineTo(endX, endY);     // Top Right
-            ctx.closePath();
-
-            // Fill and Stroke
-            ctx.fillStyle = "#e8f0fe";
-            ctx.fill();
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = "#4285F4";
-            ctx.stroke();
-
-            // Draw Right Angle Square
-            ctx.strokeRect(endX - 15, startY - 15, 15, 15);
-
-            // Draw the arc for the angle
-            ctx.beginPath();
-            ctx.arc(startX, startY, 30, 0, -angleRadians, true);
-            ctx.strokeStyle = "#ea4335";
-            ctx.stroke();
-
-            // Add Labels to the canvas
-            ctx.fillStyle = "#333";
-            ctx.font = "16px Arial";
-            ctx.fillText("Opposite", endX + 10, startY - (startY - endY)/2);
-            ctx.fillText("Adjacent", startX + (endX - startX)/2 - 20, startY + 20);
-            ctx.fillText("Hypotenuse", startX + (endX - startX)/2 - 40, startY - (startY - endY)/2 - 10);
-        }
-
-        slider.oninput = drawTriangle; 
-        drawTriangle(); // Draw it once when page loads
-
-        // CHECK TOOL ANSWER AND SAVE PROGRESS
-        window.checkToolAnswer = async () => {
-            const userSin = parseFloat(document.getElementById('user-sin').value);
-            const feed = document.getElementById('tool-feedback');
-            
-            // Check if they set the slider to 30 first
-            if (parseInt(slider.value) !== 30) {
-                feed.innerText = "⚠️ Make sure the angle slider is set to exactly 30° first!";
-                feed.style.color = "orange";
-                return;
-            }
-
-            // sin(30) is 0.5
-            if (userSin === 0.5) {
-                feed.innerText = "✅ Excellent! 5 ÷ 10 = 0.5. Progress saved."; 
-                feed.style.color = "green";
-                if(currentUserId) {
-                    await setDoc(doc(db, "students", currentUserId), { finished_trigonometry: true }, { merge: true });
-                }
-            } else { 
-                feed.innerText = "❌ Not quite. Look at the Opposite length and divide it by 10."; 
-                feed.style.color = "red"; 
-            }
-        };
-    </script>
-</body>
-</html>
+            tCtx.clearRect(0,0,400,200);
+            tCtx.beginPath(); tCtx.moveTo(50, 150); tCtx.lineTo(50 + 150 * Math.cos(rad), 150); tCtx.lineTo(50 + 150 * Math.cos(rad), 150 - 150 * Math.sin(rad)); tCtx.closePath();
+            tCtx.fillStyle = "#e8f0fe"; tCtx.fill(); tCtx.stroke
